@@ -123,10 +123,11 @@ interface Window {
       window.removeEventListener("message", onMessage);
       document.removeEventListener("keydown", onKeyDown);
 
+      // Restore scroll before the callback runs, so the host can change it again in onClose.
+      document.documentElement.style.overflow = previousOverflow;
       overlay.classList.remove("is-visible");
       window.setTimeout(() => {
         overlay.remove();
-        document.documentElement.style.overflow = previousOverflow;
         previousFocus?.focus();
       }, 200);
 

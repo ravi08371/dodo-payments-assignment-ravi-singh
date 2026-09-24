@@ -1,18 +1,41 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { BarChart3, Calendar, ChevronRight, CircleCheck, Home, Moon, Sparkles, Timer, Trophy, User } from "lucide-react";
 import EventLog, { type LogEntry } from "./EventLog";
+import Paywall from "./Paywall";
 
 // Locally the checkout is served from 127.0.0.1 so it's a different origin from the store on localhost.
 function getCheckoutUrl() {
   return process.env.NEXT_PUBLIC_CHECKOUT_URL || window.location.origin.replace("localhost", "127.0.0.1");
 }
 
-const features = ["Unlimited projects", "Priority support", "Advanced analytics", "Cancel anytime"];
+const nav = [
+  { icon: Home, label: "Today" },
+  { icon: CircleCheck, label: "Habits" },
+  { icon: Timer, label: "Focus" },
+  { icon: BarChart3, label: "Insights" },
+  { icon: User, label: "You", active: true },
+];
+
+const stats = [
+  { value: "0d", label: "Current streak" },
+  { value: "0", label: "Habits done" },
+  { value: "0h", label: "Focused" },
+];
+
+const links = [
+  { icon: Calendar, label: "Calendar" },
+  { icon: Moon, label: "Daily summary" },
+  { icon: Trophy, label: "Achievements" },
+];
 
 export default function DemoStore() {
   const [sdkStatus, setSdkStatus] = useState<"loading" | "ready" | "failed">("loading");
   const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [isPaywallOpen, setIsPaywallOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [proPlan, setProPlan] = useState<string | null>(null);
   const nextId = useRef(0);
 
   function log(name: string, tone: LogEntry["tone"], payload?: unknown) {
@@ -34,71 +57,130 @@ export default function DemoStore() {
   function openCheckout(productId: string) {
     const opened = window.DodoCheckout!.open({
       productId,
-      onSuccess: (data) => log("onSuccess", "success", data),
+      onSuccess: (data) => {
+        log("onSuccess", "success", data);
+        // A real app would confirm the session on its server before unlocking anything.
+        setProPlan(productId === "prod_grit_monthly" ? "Monthly" : "Yearly · free trial");
+      },
       onError: (data) => log("onError", "error", data),
-      onClose: (data) => log("onClose", "neutral", data),
+      onClose: (data) => {
+        log("onClose", "neutral", data);
+        setIsCheckoutOpen(false);
+        if (data.reason === "success") setIsPaywallOpen(false);
+      },
     });
+    if (opened) setIsCheckoutOpen(true);
     log(opened ? "open()" : "open() ignored, checkout already open", "neutral", { productId });
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-2.5 px-6">
-          <div className="grid size-7 place-items-center rounded-lg bg-zinc-900 text-[13px] font-semibold text-white">A</div>
-          <span className="font-semibold">Grit</span>
-          <span className="ml-auto rounded-full border border-zinc-200 px-2.5 py-1 text-xs text-zinc-500">
-            Dodo Checkout
-          </span>
+    <div className="min-h-screen bg-[#f7f6fc] lg:grid lg:grid-cols-[240px_1fr]">
+      <aside className="border-r border-violet-100/70 bg-gradient-to-b from-sky-50/60 to-transparent px-4 py-5 lg:sticky lg:top-0 lg:h-screen lg:py-8">
+        <div className="flex items-center gap-3 px-3">
+          <span className="size-8 rounded-full bg-gradient-to-br from-sky-400 to-violet-500" />
+          <span className="text-xl font-bold tracking-tight">Grit</span>
         </div>
-      </header>
+        <nav className="mt-8 hidden space-y-1 lg:block">
+          {nav.map(({ icon: Icon, label, active }) => (
+            <div
+              key={label}
+              className={`flex items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium ${
+                active ? "bg-violet-100/80 text-violet-700" : "text-zinc-500"
+              }`}
+            >
+              <Icon size={20} strokeWidth={1.75} />
+              {label}
+            </div>
+          ))}
+        </nav>
+      </aside>
 
-      <main className="mx-auto grid max-w-6xl gap-8 px-6 py-10 lg:grid-cols-[1fr_380px] lg:py-16">
-        <div>
-          <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-            <div className="grid h-48 place-items-center bg-[radial-gradient(circle_at_30%_20%,#e0e7ff,transparent_60%),radial-gradient(circle_at_80%_80%,#fce7f3,transparent_55%)] bg-zinc-100">
-              <span className="rounded-xl bg-white/80 px-4 py-2 text-lg font-semibold tracking-tight shadow-sm backdrop-blur">
-                Grit Pro
+      <div className="grid gap-10 px-5 py-8 sm:px-10 lg:py-12 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <main className="mx-auto w-full max-w-xl">
+          <h1 className="text-4xl font-extrabold tracking-tight">You</h1>
+
+          <div className="mt-8 flex items-center gap-6">
+            <div className="relative rounded-full bg-white p-1.5 shadow-sm ring-1 ring-zinc-100">
+              <div className="grid size-24 place-items-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-4xl font-bold">
+                R
+              </div>
+              <span className="absolute -right-1 bottom-1 rounded-full bg-ink px-2.5 py-1 text-xs font-bold text-white ring-2 ring-white">
+                Lv 1
               </span>
             </div>
-            <div className="p-6 sm:p-8">
-              <h1 className="text-2xl font-semibold tracking-tight">Grit Pro Subscription</h1>
-              <p className="mt-2 max-w-md text-zinc-600">
-                Everything in Grit, without limits. For teams who ship every day.
+            <div>
+              <p className="flex items-center gap-2 text-3xl font-bold">
+                Ravi
+                {proPlan && (
+                  <span className="rounded-full bg-violet-500 px-2.5 py-0.5 text-xs font-bold text-white">PRO</span>
+                )}
               </p>
-              <p className="mt-6 flex items-baseline gap-1.5">
-                <span className="text-4xl font-semibold tracking-tight">$29.00</span>
-                <span className="text-zinc-500">/ month</span>
-              </p>
-              <ul className="mt-6 grid gap-2 text-sm text-zinc-700 sm:grid-cols-2">
-                {features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2">
-                    <span className="text-emerald-600">✓</span> {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                onClick={() => openCheckout("prod_123")}
-                disabled={sdkStatus !== "ready"}
-                className="mt-8 h-12 w-full rounded-lg bg-zinc-900 px-8 font-medium text-white transition hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-300 sm:w-auto"
-              >
-                {sdkStatus === "loading" ? "Loading…" : sdkStatus === "failed" ? "Checkout unavailable" : "Buy now"}
-              </button>
-              {sdkStatus === "failed" && (
-                <p role="alert" className="mt-3 text-sm text-red-600">
-                  We couldn&apos;t load the checkout. Check your connection and refresh the page.
-                </p>
-              )}
+              <p className="mt-1 text-lg text-zinc-500">Seedling</p>
+              <p className="text-zinc-500">Growing since September 2026</p>
             </div>
-          </section>
+          </div>
 
-          <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 text-sm sm:p-8">
+          {proPlan ? (
+            <div className="animate-fade-in mt-8 flex items-center gap-4 rounded-3xl bg-emerald-50 p-5">
+              <span className="grid size-14 place-items-center rounded-2xl bg-emerald-500 text-white">
+                <Sparkles size={22} />
+              </span>
+              <div className="flex-1">
+                <p className="text-lg font-bold">You&apos;re on Grit Pro</p>
+                <p className="text-zinc-600">{proPlan}</p>
+              </div>
+              <button
+                onClick={() => setProPlan(null)}
+                className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 hover:bg-emerald-100 hover:text-ink"
+              >
+                Reset demo
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsPaywallOpen(true)}
+              className="mt-8 flex w-full items-center gap-4 rounded-3xl bg-violet-100/70 p-5 text-left transition hover:bg-violet-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+            >
+              <span className="grid size-14 place-items-center rounded-2xl bg-violet-400 text-ink">
+                <Sparkles size={22} />
+              </span>
+              <span className="flex-1">
+                <span className="block text-lg font-bold">Try Pro</span>
+                <span className="block text-zinc-600">Unlimited habits, every theme and more.</span>
+              </span>
+              <ChevronRight className="text-violet-600" />
+            </button>
+          )}
+
+          <dl className="mt-8 grid grid-cols-3 border-y border-zinc-200 py-6">
+            {stats.map((stat) => (
+              <div key={stat.label}>
+                <dd className="text-3xl font-extrabold">{stat.value}</dd>
+                <dt className="mt-1 text-zinc-500">{stat.label}</dt>
+              </div>
+            ))}
+          </dl>
+
+          <div className="mt-8 divide-y divide-zinc-100 rounded-3xl border border-zinc-100 bg-white">
+            {links.map(({ icon: Icon, label }) => (
+              <div key={label} className="flex items-center gap-4 px-6 py-5 text-lg font-medium">
+                <Icon size={22} strokeWidth={1.75} />
+                <span className="flex-1">{label}</span>
+                <ChevronRight size={20} className="text-zinc-400" />
+              </div>
+            ))}
+          </div>
+        </main>
+
+        <aside className="space-y-6 xl:sticky xl:top-12 xl:self-start">
+          <EventLog entries={entries} onClear={() => setEntries([])} />
+
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6 text-sm">
             <h2 className="font-semibold">Try it</h2>
             <ul className="mt-3 space-y-1.5 text-zinc-600">
-              <li><code className="font-mono text-zinc-900">4242 4242 4242 4242</code> succeeds</li>
-              <li><code className="font-mono text-zinc-900">4000 0000 0000 0002</code> is declined</li>
-              <li><code className="font-mono text-zinc-900">4000 0000 0000 0341</code> fails once, then succeeds on retry</li>
+              <li><code className="font-mono text-ink">4242 4242 4242 4242</code> succeeds</li>
+              <li><code className="font-mono text-ink">4000 0000 0000 0002</code> is declined</li>
+              <li><code className="font-mono text-ink">4000 0000 0000 0341</code> fails once, then succeeds on retry</li>
             </ul>
             <p className="mt-3 text-zinc-500">Any future expiry date and any 3-digit CVC.</p>
 
@@ -109,12 +191,12 @@ export default function DemoStore() {
                 disabled={sdkStatus !== "ready"}
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
               >
-                Open an unknwn product
+                Open an unknown product
               </button>
               <button
                 onClick={() => {
-                  openCheckout("prod_123");
-                  openCheckout("prod_123");
+                  openCheckout("prod_grit_monthly");
+                  openCheckout("prod_grit_monthly");
                 }}
                 disabled={sdkStatus !== "ready"}
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
@@ -123,12 +205,18 @@ export default function DemoStore() {
               </button>
             </div>
           </section>
-        </div>
-
-        <aside className="lg:sticky lg:top-8 lg:self-start">
-          <EventLog entries={entries} onClear={() => setEntries([])} />
         </aside>
-      </main>
+      </div>
+
+      {isPaywallOpen && (
+        <Paywall
+          canCheckout={sdkStatus === "ready"}
+          sdkFailed={sdkStatus === "failed"}
+          isCheckoutOpen={isCheckoutOpen}
+          onContinue={openCheckout}
+          onClose={() => setIsPaywallOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export default function EventLog({ entries, onClear }: { entries: LogEntry[]; on
 
       {entries.length === 0 ? (
         <p className="px-5 py-10 text-center text-sm text-zinc-400">
-          Nothing yet. Click <span className="text-zinc-600">Buy now</span> to open the checkout.
+          Nothing yet. Click <span className="text-zinc-600">Try Pro</span> and pick a plan.
         </p>
       ) : (
         <ol aria-live="polite" className="max-h-[520px] divide-y divide-zinc-100 overflow-y-auto">

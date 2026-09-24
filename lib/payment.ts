@@ -1,20 +1,30 @@
 export type Product = {
   merchant: string;
   name: string;
-  description: string;
+  plan: string;
   amount: number;
   currency: string;
-  interval?: "month" | "year";
+  interval: "month" | "year";
+  trialDays?: number;
 };
 
 // Stand-in for a product lookup on a real backend.
 export const PRODUCTS: Record<string, Product> = {
-  prod_123: {
+  prod_grit_yearly: {
     merchant: "Grit",
     name: "Grit Pro",
-    description: "Unlimited projects, priority support and advanced analytics.",
-    amount: 2900,
-    currency: "USD",
+    plan: "Yearly",
+    amount: 69900,
+    currency: "INR",
+    interval: "year",
+    trialDays: 7,
+  },
+  prod_grit_monthly: {
+    merchant: "Grit",
+    name: "Grit Pro",
+    plan: "Monthly",
+    amount: 9900,
+    currency: "INR",
     interval: "month",
   },
 };
@@ -25,10 +35,26 @@ export const TEST_CARDS = [
   { number: "4000000000000341", label: "Fails once" },
 ];
 
-export function formatAmount(product: Product) {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: product.currency }).format(
-    product.amount / 100,
-  );
+export function formatAmount(amount: number, currency: string) {
+  const digits = amount % 100 ? 2 : 0;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(amount / 100);
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+
+// Fixed time zone so the server render and the browser agree on the date.
+function formatDay(date: Date) {
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+}
+
+export function getTrialDates(trialDays: number) {
+  const chargeOn = Date.now() + trialDays * DAY;
+  return { chargeOn: formatDay(new Date(chargeOn)), remindOn: formatDay(new Date(chargeOn - 2 * DAY)) };
 }
 
 export function isValidCardNumber(digits: string) {

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fakePay, formatAmount, isValidCardNumber, TEST_CARDS, type Product } from "@/lib/payment";
-import { CheckIcon, CloseIcon, LockIcon, Spinner } from "./icons";
+import { Check, Lock, X } from "lucide-react";
+import { fakePay, formatAmount, getTrialDates, isValidCardNumber, TEST_CARDS, type Product } from "@/lib/payment";
 
 type Field = "email" | "card" | "expiry" | "cvc";
 type PaymentError = { code: "PAYMENT_DECLINED" | "PAYMENT_FAILED" | "OFFLINE"; title: string; text: string };
@@ -169,7 +169,9 @@ export default function Checkout({ product, parentOrigin }: { product: Product |
     }
   }
 
-  const amount = product ? formatAmount(product) : "";
+  const price = product ? formatAmount(product.amount, product.currency) : "";
+  const free = product ? formatAmount(0, product.currency) : "";
+  const trial = product?.trialDays ? getTrialDates(product.trialDays) : null;
   const cardError = errors.card ?? errors.expiry ?? errors.cvc;
   const brand = card.startsWith("4") ? "Visa" : /^5[1-5]/.test(card) ? "Mastercard" : null;
 
@@ -183,28 +185,29 @@ export default function Checkout({ product, parentOrigin }: { product: Product |
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-title"
-        className="animate-panel-in relative flex max-h-[calc(100dvh-12px)] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl shadow-black/20 ring-1 ring-black/5 sm:max-h-[calc(100dvh-48px)] sm:max-w-105 sm:rounded-2xl"
+        className="animate-panel-in relative flex max-h-[calc(100dvh-12px)] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl shadow-ink/20 sm:max-h-[calc(100dvh-48px)] sm:max-w-110 sm:rounded-3xl"
       >
-        <header className="flex items-center gap-2.5 px-6 pt-5 pb-1">
-          <div className="grid size-7 place-items-center rounded-lg bg-zinc-900 text-[13px] font-semibold text-white">
-            {product?.merchant[0] ?? "?"}
-          </div>
-          <span className="text-sm font-medium">{product?.merchant ?? "Checkout"}</span>
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">Test mode</span>
+        <header className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-zinc-100 px-5 py-4">
+          <span className="justify-self-start rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+            Test mode
+          </span>
+          <h1 id="checkout-title" className="text-[17px] font-semibold text-ink">
+            {status === "success" ? "All set" : "Checkout"}
+          </h1>
           <button
             type="button"
             onClick={close}
             disabled={isProcessing}
             aria-label="Close checkout"
-            className="-mr-2 ml-auto grid size-8 place-items-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-zinc-900 disabled:opacity-40 disabled:hover:bg-transparent"
+            className="-mr-1.5 grid size-9 place-items-center justify-self-end rounded-full text-ink transition hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-30 disabled:hover:bg-transparent"
           >
-            <CloseIcon />
+            <X size={20} strokeWidth={2} />
           </button>
         </header>
 
         {!product ? (
-          <div className="px-6 pt-6 pb-6">
-            <h2 id="checkout-title" className="text-lg font-semibold">This product isn&apos;t available</h2>
+          <div className="px-6 py-8 text-center">
+            <h2 className="text-lg font-semibold text-ink">This plan isn&apos;t available</h2>
             <p className="mt-1.5 text-sm text-zinc-500">
               The store may have removed it, or the link is out of date. You haven&apos;t been charged.
             </p>
@@ -214,19 +217,30 @@ export default function Checkout({ product, parentOrigin }: { product: Product |
           </div>
         ) : status === "success" ? (
           <div className="animate-fade-in px-6 pt-8 pb-6 text-center">
-            <div className="mx-auto grid size-12 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
-              <CheckIcon />
+            <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-50 text-emerald-600 ring-8 ring-emerald-50/60">
+              <Check size={26} strokeWidth={2.5} className="animate-draw" />
             </div>
-            <h2 id="checkout-title" className="mt-5 text-lg font-semibold">Payment successful</h2>
-            <p className="mt-1.5 text-sm text-zinc-500">
-              You&apos;re subscribed to {product.name}. A receipt is on its way to{" "}
-              <span className="text-zinc-700">{email}</span>.
+            <h2 className="mt-5 text-xl font-semibold text-ink">
+              {trial ? "Your free trial has started" : "Payment successful"}
+            </h2>
+            <p className="mx-auto mt-1.5 max-w-xs text-sm text-zinc-500">
+              {trial
+                ? `You have full access to ${product.name} until ${trial.chargeOn}. We'll email ${email} a reminder on ${trial.remindOn}.`
+                : `You're on ${product.name}. A receipt is on its way to ${email}.`}
             </p>
-            <dl className="mt-6 divide-y divide-zinc-100 rounded-xl border border-zinc-200 text-left text-sm">
+            <dl className="mt-6 divide-y divide-zinc-100 rounded-2xl border border-zinc-200 text-left text-sm">
               <div className="flex justify-between px-4 py-3">
-                <dt className="text-zinc-500">Amount paid</dt>
-                <dd className="font-medium tabular-nums">{amount}</dd>
+                <dt className="text-zinc-500">{trial ? "Paid today" : "Amount paid"}</dt>
+                <dd className="font-medium text-ink tabular-nums">{trial ? free : price}</dd>
               </div>
+              {trial && (
+                <div className="flex justify-between px-4 py-3">
+                  <dt className="text-zinc-500">First charge</dt>
+                  <dd className="font-medium text-ink">
+                    {price} on {trial.chargeOn}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between px-4 py-3">
                 <dt className="text-zinc-500">Reference</dt>
                 <dd className="font-mono text-xs leading-5 text-zinc-700">{sessionId}</dd>
@@ -238,118 +252,147 @@ export default function Checkout({ product, parentOrigin }: { product: Product |
           </div>
         ) : (
           <form onSubmit={handlePay} noValidate className="flex min-h-0 flex-col">
-            <div className="overflow-y-auto px-6 pb-6">
-              <div className="pt-4 pb-6">
-                <h2 id="checkout-title" className="text-sm text-zinc-500">{product.name}</h2>
-                <p className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-3xl font-semibold tracking-tight tabular-nums">{amount}</span>
-                  {product.interval && <span className="text-sm text-zinc-500">per {product.interval}</span>}
-                </p>
-                <p className="mt-2 text-sm text-zinc-500">{product.description}</p>
+            <div className="space-y-5 overflow-y-auto px-6 pt-5 pb-6">
+              <section className="rounded-2xl bg-violet-50/70 p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="font-semibold text-ink">
+                      {product.name} · {product.plan}
+                    </h2>
+                    <p className="mt-0.5 text-sm text-zinc-500">
+                      {trial
+                        ? `${price}/${product.interval} after ${product.trialDays}-day trial`
+                        : `Billed every ${product.interval}`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-zinc-500">Due today</p>
+                    <p className="text-xl font-semibold text-ink tabular-nums">{trial ? free : price}</p>
+                  </div>
+                </div>
+                {trial && (
+                  <ol className="mt-4 space-y-2 border-t border-violet-100 pt-4 text-sm text-zinc-600">
+                    <li className="flex items-center gap-2.5">
+                      <span className="size-2 rounded-full bg-violet-600" />
+                      <span><b className="font-semibold text-ink">Today</b>: full access, {free}</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span className="size-2 rounded-full bg-violet-400" />
+                      <span><b className="font-semibold text-ink">{trial.remindOn}</b>: we&apos;ll remind you</span>
+                    </li>
+                    <li className="flex items-center gap-2.5">
+                      <span className="size-2 shrink-0 rounded-full bg-violet-200" />
+                      <span><b className="font-semibold text-ink">{trial.chargeOn}</b>: {price} charged, cancel before to pay nothing</span>
+                    </li>
+                  </ol>
+                )}
+              </section>
+
+              <div>
+                <label htmlFor="email" className="label">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  readOnly={isProcessing}
+                  onChange={(e) => handleChange("email", e.target.value, setEmail)}
+                  onBlur={() => handleBlur("email", email)}
+                  aria-invalid={!!errors.email}
+                  aria-describedby={errors.email ? "email-error" : undefined}
+                  className="input rounded-xl"
+                />
+                {errors.email && <p id="email-error" className="field-error">{errors.email}</p>}
               </div>
 
-              <div className="space-y-5">
-                <div>
-                  <label htmlFor="email" className="label">Email</label>
+              <fieldset>
+                <legend className="label">Card details</legend>
+                <div className="relative">
                   <input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    value={email}
+                    id="card"
+                    inputMode="numeric"
+                    autoComplete="cc-number"
+                    placeholder="1234 1234 1234 1234"
+                    aria-label="Card number"
+                    value={formatCard(card)}
                     readOnly={isProcessing}
-                    onChange={(e) => handleChange("email", e.target.value, setEmail)}
-                    onBlur={() => handleBlur("email", email)}
-                    aria-invalid={!!errors.email}
-                    aria-describedby={errors.email ? "email-error" : undefined}
-                    className="input rounded-lg"
+                    onChange={(e) => handleChange("card", e.target.value.replace(/\D/g, "").slice(0, 16), setCard)}
+                    onBlur={() => handleBlur("card", card)}
+                    aria-invalid={!!errors.card}
+                    aria-describedby={cardError ? "card-error" : undefined}
+                    className="input rounded-t-xl pr-24 tabular-nums"
                   />
-                  {errors.email && <p id="email-error" className="field-error">{errors.email}</p>}
+                  {brand && (
+                    <span className="pointer-events-none absolute top-1/2 right-3.5 z-10 -translate-y-1/2 text-xs font-semibold tracking-wide text-zinc-400">
+                      {brand}
+                    </span>
+                  )}
                 </div>
+                <div className="-mt-px flex">
+                  <input
+                    id="expiry"
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
+                    placeholder="MM / YY"
+                    aria-label="Expiry date"
+                    value={formatExpiry(expiry)}
+                    readOnly={isProcessing}
+                    onChange={(e) => {
+                      let digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      if (digits.length === 1 && Number(digits) > 1) digits = "0" + digits;
+                      handleChange("expiry", digits, setExpiry);
+                    }}
+                    onBlur={() => handleBlur("expiry", expiry)}
+                    aria-invalid={!!errors.expiry}
+                    aria-describedby={cardError ? "card-error" : undefined}
+                    className="input rounded-bl-xl tabular-nums"
+                  />
+                  <input
+                    id="cvc"
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
+                    placeholder="CVC"
+                    aria-label="Security code"
+                    value={cvc}
+                    readOnly={isProcessing}
+                    onChange={(e) => handleChange("cvc", e.target.value.replace(/\D/g, "").slice(0, 4), setCvc)}
+                    onBlur={() => handleBlur("cvc", cvc)}
+                    aria-invalid={!!errors.cvc}
+                    aria-describedby={cardError ? "card-error" : undefined}
+                    className="input -ml-px rounded-br-xl tabular-nums"
+                  />
+                </div>
+                {cardError && <p id="card-error" className="field-error">{cardError}</p>}
+                {trial && !cardError && (
+                  <p className="mt-1.5 text-[13px] text-zinc-500">
+                    We&apos;ll check your card now but won&apos;t charge it until {trial.chargeOn}.
+                  </p>
+                )}
+              </fieldset>
 
-                <fieldset>
-                  <legend className="label">Card details</legend>
-                  <div className="relative">
-                    <input
-                      id="card"
-                      inputMode="numeric"
-                      autoComplete="cc-number"
-                      placeholder="1234 1234 1234 1234"
-                      aria-label="Card number"
-                      value={formatCard(card)}
-                      readOnly={isProcessing}
-                      onChange={(e) => handleChange("card", e.target.value.replace(/\D/g, "").slice(0, 16), setCard)}
-                      onBlur={() => handleBlur("card", card)}
-                      aria-invalid={!!errors.card}
-                      aria-describedby={cardError ? "card-error" : undefined}
-                      className="input rounded-t-lg pr-24 tabular-nums"
-                    />
-                    {brand && (
-                      <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold tracking-wide text-zinc-400">
-                        {brand}
-                      </span>
-                    )}
-                  </div>
-                  <div className="-mt-px flex">
-                    <input
-                      id="expiry"
-                      inputMode="numeric"
-                      autoComplete="cc-exp"
-                      placeholder="MM / YY"
-                      aria-label="Expiry date"
-                      value={formatExpiry(expiry)}
-                      readOnly={isProcessing}
-                      onChange={(e) => {
-                        let digits = e.target.value.replace(/\D/g, "").slice(0, 4);
-                        if (digits.length === 1 && Number(digits) > 1) digits = "0" + digits;
-                        handleChange("expiry", digits, setExpiry);
-                      }}
-                      onBlur={() => handleBlur("expiry", expiry)}
-                      aria-invalid={!!errors.expiry}
-                      aria-describedby={cardError ? "card-error" : undefined}
-                      className="input rounded-bl-lg tabular-nums"
-                    />
-                    <input
-                      id="cvc"
-                      inputMode="numeric"
-                      autoComplete="cc-csc"
-                      placeholder="CVC"
-                      aria-label="Security code"
-                      value={cvc}
-                      readOnly={isProcessing}
-                      onChange={(e) => handleChange("cvc", e.target.value.replace(/\D/g, "").slice(0, 4), setCvc)}
-                      onBlur={() => handleBlur("cvc", cvc)}
-                      aria-invalid={!!errors.cvc}
-                      aria-describedby={cardError ? "card-error" : undefined}
-                      className="input -ml-px rounded-br-lg tabular-nums"
-                    />
-                  </div>
-                  {cardError && <p id="card-error" className="field-error">{cardError}</p>}
-                </fieldset>
-
-                <div className="rounded-lg border border-dashed border-zinc-200 px-3 py-2.5">
-                  <p className="text-xs text-zinc-500">Test cards — click to fill</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {TEST_CARDS.map((testCard) => (
-                      <button
-                        key={testCard.number}
-                        type="button"
-                        disabled={isProcessing}
-                        onClick={() => fillTestCard(testCard.number)}
-                        className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700 transition hover:bg-zinc-200 focus-visible:outline-2 focus-visible:outline-zinc-900 disabled:opacity-50"
-                      >
-                        <span className="font-mono">•••• {testCard.number.slice(-4)}</span>
-                        <span className="text-zinc-500"> · {testCard.label}</span>
-                      </button>
-                    ))}
-                  </div>
+              <div className="rounded-xl border border-dashed border-zinc-200 px-3 py-2.5">
+                <p className="text-xs text-zinc-500">Test cards, click to fill</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {TEST_CARDS.map((testCard) => (
+                    <button
+                      key={testCard.number}
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => fillTestCard(testCard.number)}
+                      className="rounded-lg bg-zinc-100 px-2 py-1 text-xs text-zinc-700 transition hover:bg-zinc-200 focus-visible:outline-2 focus-visible:outline-violet-500 disabled:opacity-50"
+                    >
+                      <span className="font-mono">•••• {testCard.number.slice(-4)}</span>
+                      <span className="text-zinc-500"> · {testCard.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
             <div className="border-t border-zinc-100 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               {paymentError && (
-                <div role="alert" className="animate-fade-in mb-3 rounded-lg bg-red-50 px-3.5 py-3 text-sm">
+                <div role="alert" className="animate-fade-in mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm">
                   <p className="font-medium text-red-800">{paymentError.title}</p>
                   <p className="mt-0.5 text-red-700">{paymentError.text}</p>
                 </div>
@@ -361,30 +404,32 @@ export default function Checkout({ product, parentOrigin }: { product: Product |
               >
                 {isProcessing ? (
                   <>
-                    <Spinner /> Processing…
+                    <span className="size-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden="true" />
+                    {trial ? "Starting trial…" : "Processing…"}
                   </>
                 ) : paymentError?.code === "PAYMENT_FAILED" ? (
                   "Try again"
+                ) : trial ? (
+                  "Start free trial"
                 ) : (
-                  `Pay ${amount}`
+                  `Pay ${price}`
                 )}
               </button>
-              <p className="mt-3 text-center text-xs text-zinc-500">
+              <p className="mt-3 text-center text-[13px] text-zinc-500">
                 {isProcessing
                   ? "Hang tight, this only takes a moment."
-                  : product.interval
-                    ? `You'll be charged ${amount} today, then every ${product.interval} until you cancel.`
-                    : `You'll be charged ${amount}.`}
+                  : trial
+                    ? `${free} today. ${price} on ${trial.chargeOn} unless you cancel.`
+                    : `${price} today, then every ${product.interval} until you cancel.`}
               </p>
             </div>
           </form>
         )}
 
-        <footer className="flex items-center justify-center gap-1.5 bg-zinc-50 px-6 py-3 text-xs text-zinc-500">
-          <LockIcon />
+        <footer className="flex items-center justify-center gap-1.5 border-t border-zinc-100 px-6 py-3.5 text-xs text-zinc-500">
+          <Lock size={12} strokeWidth={2} />
           <span>
-            Secured by <span className="font-medium text-zinc-700">Dodo Payments</span>
-            {product && <> · {product.merchant} never sees your card</>}
+            Secured by Dodo Payments{product && <> · {product.merchant} never sees your card</>}
           </span>
         </footer>
       </div>

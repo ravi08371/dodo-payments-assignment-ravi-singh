@@ -4,7 +4,7 @@ A store adds one script, calls `DodoCheckout.open()`, and a checkout opens on to
 
 - **SDK:** `sdk/dodo-checkout.ts`, plain TypeScript with no dependencies. It compiles to `public/dodo-checkout.js`.
 - **Checkout app:** `app/checkout/`, where the product, email, card and fake payment live.
-- **Demo store:** `app/page.tsx`, "Grit Pro" with a Buy button and a live log of SDK callbacks.
+- **Demo app:** `app/page.tsx` and `app/Paywall.tsx`. Grit is a habit app. "Try Pro" opens the app's own plan picker, and its button calls `DodoCheckout.open()` with the chosen plan. A live log beside it shows every SDK callback.
 
 ## Running locally
 
@@ -50,7 +50,7 @@ SDK ── checks origin + source, copies whitelisted fields ──▶ onSuccess
 
 ```js
 DodoCheckout.open({
-  productId: "prod_123",
+  productId: "prod_grit_yearly",
   onSuccess: ({ sessionId }) => {},
   onClose: ({ reason }) => {},       // "user" | "success" | "error"
   onError: ({ code, message }) => {},
@@ -65,6 +65,15 @@ The contract is meant to be easy to reason about:
 - `open()` while a checkout is already open does nothing and returns `false`.
 - A missing `productId` **throws**. That's a bug in the integration, not something to recover from at runtime.
 - An exception thrown inside a merchant callback is caught and logged, so it can't leave the overlay stuck on the page.
+
+## Products
+
+| Product ID          | Plan                           | Due today |
+| ------------------- | ------------------------------ | --------- |
+| `prod_grit_yearly`  | ₹699 / year, with a 7-day free trial | ₹0        |
+| `prod_grit_monthly` | ₹99 / month                    | ₹99       |
+
+The plan picker belongs to the merchant, and the checkout belongs to Dodo. The checkout looks up the price itself from the `productId`, so the host page can't change what the customer is charged. For the trial, the checkout spells out the timeline (today ₹0, when we'll remind you, when the first charge happens) right next to the button, because a surprise first charge is the thing people hate most about free trials.
 
 ## Payment simulation
 
