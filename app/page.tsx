@@ -36,6 +36,7 @@ export default function DemoStore() {
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [proPlan, setProPlan] = useState<string | null>(null);
+  const [hasTriedPro, setHasTriedPro] = useState(false);
   const nextId = useRef(0);
 
   function log(name: string, tone: LogEntry["tone"], payload?: unknown) {
@@ -137,19 +138,35 @@ export default function DemoStore() {
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => setIsPaywallOpen(true)}
-              className="mt-8 flex w-full items-center gap-4 rounded-3xl bg-violet-100/70 p-5 text-left transition hover:bg-violet-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
-            >
-              <span className="grid size-14 place-items-center rounded-2xl bg-violet-400 text-ink">
-                <Sparkles size={22} />
-              </span>
-              <span className="flex-1">
-                <span className="block text-lg font-bold">Try Pro</span>
-                <span className="block text-zinc-600">Unlimited habits, every theme and more.</span>
-              </span>
-              <ChevronRight className="text-violet-600" />
-            </button>
+            <div className="relative mt-8">
+              {!hasTriedPro && (
+                <span className="animate-fade-in absolute -top-3 right-5 z-10 flex items-center gap-2 rounded-full bg-ink px-3 py-1 text-xs font-semibold text-white shadow-lg shadow-ink/20">
+                  <span className="relative flex size-2">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-violet-300" />
+                    <span className="relative inline-flex size-2 rounded-full bg-violet-400" />
+                  </span>
+                  Start the demo here
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setHasTriedPro(true);
+                  setIsPaywallOpen(true);
+                }}
+                className={`flex w-full items-center gap-4 rounded-3xl bg-violet-100/70 p-5 text-left transition hover:bg-violet-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 ${
+                  hasTriedPro ? "" : "ring-2 ring-violet-300"
+                }`}
+              >
+                <span className="grid size-14 place-items-center rounded-2xl bg-violet-400 text-ink">
+                  <Sparkles size={22} />
+                </span>
+                <span className="flex-1">
+                  <span className="block text-lg font-bold">Try Pro</span>
+                  <span className="block text-zinc-600">Unlimited habits, every theme and more.</span>
+                </span>
+                <ChevronRight className="text-violet-600" />
+              </button>
+            </div>
           )}
 
           <dl className="mt-8 grid grid-cols-3 border-y border-zinc-200 py-6">
