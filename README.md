@@ -2,7 +2,7 @@
 
 A tiny embeddable checkout. A website adds one script, calls `DodoCheckout.open()`, and a secure checkout opens on top of the page. The customer never leaves the page, and the website never sees their card details.
 
-**Live demo:** _add link here_
+**Live demo:** [_Live link_](https://dodo-payments-assignment-ravi-singh.vercel.app/)
 
 ## Getting started
 
