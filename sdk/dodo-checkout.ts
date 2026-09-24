@@ -32,7 +32,7 @@ interface Window {
 
   const style = document.createElement("style");
   style.textContent = `
-    .dodo-overlay { position: fixed; inset: 0; z-index: 2147483647; background: rgba(9, 9, 11, 0.5); opacity: 0; transition: opacity 200ms ease; }
+    .dodo-overlay { position: fixed; inset: 0; z-index: 2147483647; background: rgba(9, 9, 11, 0.45); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); opacity: 0; transition: opacity 200ms ease; }
     .dodo-overlay.is-visible { opacity: 1; }
     .dodo-overlay iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity 150ms ease; }
     .dodo-overlay.is-ready iframe { opacity: 1; }
