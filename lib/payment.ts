@@ -78,6 +78,11 @@ let hasFailedOnce = false;
 export async function fakePay(cardNumber: string): Promise<PaymentResult> {
   await new Promise((resolve) => setTimeout(resolve, 1600));
 
+  // Toggle "Offline" in DevTools while it's processing to simulate the connection dropping mid-payment.
+  if (!navigator.onLine) {
+    return { ok: false, code: "PAYMENT_FAILED", message: "The connection was lost while processing your payment." };
+  }
+
   if (cardNumber === "4000000000000002") {
     return { ok: false, code: "PAYMENT_DECLINED", message: "Your card was declined." };
   }

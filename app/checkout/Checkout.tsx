@@ -160,6 +160,12 @@ export default function Checkout({ product, parentOrigin }: { product: Product |
       const cardInput = document.getElementById("card") as HTMLInputElement | null;
       cardInput?.focus();
       cardInput?.select();
+    } else if (!navigator.onLine) {
+      setPaymentError({
+        code: result.code,
+        title: "Connection lost",
+        text: "Your card wasn't charged. Check your connection and try again.",
+      });
     } else {
       setPaymentError({
         code: result.code,

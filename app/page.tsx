@@ -37,6 +37,7 @@ export default function DemoStore() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [proPlan, setProPlan] = useState<string | null>(null);
   const [hasTriedPro, setHasTriedPro] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const nextId = useRef(0);
 
   function log(name: string, tone: LogEntry["tone"], payload?: unknown) {
@@ -63,14 +64,21 @@ export default function DemoStore() {
         // A real app would confirm the session on its server before unlocking anything.
         setProPlan(productId === "prod_grit_monthly" ? "Monthly" : "Yearly · free trial");
       },
-      onError: (data) => log("onError", "error", data),
+      onError: (data) => {
+        log("onError", "error", data);
+        // The checkout shows its own payment errors. This one happens before it ever appears.
+        if (data.code === "CHECKOUT_UNAVAILABLE") setCheckoutError("Checkout couldn't load. Check your connection and try again.");
+      },
       onClose: (data) => {
         log("onClose", "neutral", data);
         setIsCheckoutOpen(false);
         if (data.reason === "success") setIsPaywallOpen(false);
       },
     });
-    if (opened) setIsCheckoutOpen(true);
+    if (opened) {
+      setIsCheckoutOpen(true);
+      setCheckoutError(null);
+    }
     log(opened ? "open()" : "open() ignored, checkout already open", "neutral", { productId });
   }
 
@@ -229,6 +237,7 @@ export default function DemoStore() {
         <Paywall
           canCheckout={sdkStatus === "ready"}
           sdkFailed={sdkStatus === "failed"}
+          checkoutError={checkoutError}
           isCheckoutOpen={isCheckoutOpen}
           onContinue={openCheckout}
           onClose={() => setIsPaywallOpen(false)}

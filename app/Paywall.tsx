@@ -21,12 +21,13 @@ const plans = [
 type Props = {
   canCheckout: boolean;
   sdkFailed: boolean;
+  checkoutError: string | null;
   isCheckoutOpen: boolean;
   onContinue: (productId: string) => void;
   onClose: () => void;
 };
 
-export default function Paywall({ canCheckout, sdkFailed, isCheckoutOpen, onContinue, onClose }: Props) {
+export default function Paywall({ canCheckout, sdkFailed, checkoutError, isCheckoutOpen, onContinue, onClose }: Props) {
   const [productId, setProductId] = useState(plans[0].productId);
   const dialogRef = useRef<HTMLDivElement>(null);
   const plan = plans.find((p) => p.productId === productId)!;
@@ -154,9 +155,9 @@ export default function Paywall({ canCheckout, sdkFailed, isCheckoutOpen, onCont
                   ? "Start 7-day free trial"
                   : "Continue with Monthly"}
           </button>
-          {sdkFailed ? (
+          {sdkFailed || checkoutError ? (
             <p role="alert" className="mt-3 text-center text-sm text-red-600">
-              We couldn&apos;t load the checkout. Check your connection and refresh the page.
+              {checkoutError ?? "We couldn't load the checkout. Check your connection and refresh the page."}
             </p>
           ) : (
             <p className="mt-3 text-center text-sm text-zinc-500">

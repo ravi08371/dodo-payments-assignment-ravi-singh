@@ -96,6 +96,8 @@ The checkout shows these cards as click-to-fill chips, labelled "Test mode". Any
 - **During processing:** the fields become read-only. Close, Escape and backdrop clicks are all ignored.
 - **Declined vs failed:** the copy differs because the fix differs ("try another card" vs "try again"). Both say plainly that the customer **hasn't been charged**.
 - **Offline:** caught before any attempt is made.
+- **Connection drops mid-payment:** turn on "Offline" in DevTools while the payment is processing. The checkout shows "Connection lost, your card wasn't charged" and the host gets `onError(PAYMENT_FAILED)`.
+- **Checkout can't load:** the host gets `CHECKOUT_UNAVAILABLE`. The demo's plan picker then tells the customer, instead of the spinner just disappearing.
 - **Unknown product:** the checkout shows an explanation and the host gets `PRODUCT_NOT_FOUND`.
 - **Checkout URL opened directly:** shows an empty state instead of a broken form.
 - **Focus:** trapped inside the dialog, and restored to the element that opened the checkout when it closes. Page scroll is locked while the checkout is open. Motion is reduced when the user asks for it.
@@ -125,6 +127,7 @@ If `onError` only fired on terminal failures, it would be simpler for merchants:
 
 - A real backend: create the session on the server, check the merchant's origin against `productId`, add idempotency keys, and send webhooks as the source of truth.
 - Letting customers close during processing once a server can report the final state later.
+- A heartbeat between the checkout and the SDK. Today, if the iframe crashes after `ready`, the overlay stays up and `onClose` never fires. The matching real-world gap is a customer closing the tab mid-payment. The browser can't report that, and only server webhooks can.
 - Card input polish: keeping the caret in place when editing the middle of the number, Amex (15 digits), and brand icons.
 - Localised currency and copy, plus a small allowed set of theme options (accent colour and logo) if merchants actually ask for them.
 - Automated tests: Playwright for the SDK ⇄ iframe contract, plus unit tests for validation. Right now it's checked by hand and with a throwaway browser script. It also needs a proper screen-reader pass.
