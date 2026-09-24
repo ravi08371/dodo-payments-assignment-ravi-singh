@@ -87,7 +87,7 @@ lib/
 
 Locally, the demo runs on `localhost` and loads the checkout from `127.0.0.1`. Browsers treat those as different origins, so the iframe is cross-origin just as it would be in production.
 
-The message protocol, security, the states handled, the two decisions I went back and forth on, and what I'd explore next are all in **[NOTES.md](NOTES.md)**.
+The message protocol, API contract, security and the states handled are covered in more detail in **[NOTES.md](NOTES.md)**.
 
 ## Deploying
 
@@ -101,3 +101,20 @@ This keeps the demo and the checkout on separate domains, just as they would be 
 ## Tech
 
 Next.js 16, React 19, TypeScript, Tailwind CSS 4 and lucide-react. No backend: the payment is simulated in `lib/payment.ts`.
+
+## Two decisions I went back and forth on
+
+**1. Should closing be allowed while a payment is processing?**
+Letting people leave whenever they want is normally right, and trapping them feels hostile. But if the checkout closes mid-charge, nobody knows whether money moved: not the customer, and not the host (which would get `onClose` with no success or error). I chose to block close for the ~2 seconds a payment takes and to say what's happening on the button. With a real backend I'd reconsider: let them close, and report the final result through a webhook plus a "pending" close reason.
+
+**2. Should `onError` mean "an attempt failed" or "the checkout failed"?**
+If `onError` only fired on terminal failures, it would be simpler for merchants: nothing fires until there's a final result. But a decline followed by the customer closing would then look exactly like the customer just changing their mind, and the host would never learn the truth. I chose to fire `onError` on every failed attempt and make `onClose` the one guaranteed terminal event. The cost is that a merchant has to know `onError` doesn't mean "show a failure page". I've tried to make that obvious in the docs and the demo log.
+
+## What I'd explore next
+
+- A real backend: create the session on the server, check the merchant's origin against `productId`, add idempotency keys, and send webhooks as the source of truth.
+- Letting customers close during processing once a server can report the final state later.
+- A heartbeat between the checkout and the SDK. Today, if the iframe crashes after `ready`, the overlay stays up and `onClose` never fires. The matching real-world gap is a customer closing the tab mid-payment. The browser can't report that, and only server webhooks can.
+- Card input polish: keeping the caret in place when editing the middle of the number, Amex (15 digits), and brand icons.
+- Localised currency and copy, plus a small allowed set of theme options (accent colour and logo) if merchants actually ask for them.
+- Automated tests: Playwright for the SDK ⇄ iframe contract, plus unit tests for validation. Right now it's checked by hand and with a throwaway browser script. It also needs a proper screen-reader pass.
