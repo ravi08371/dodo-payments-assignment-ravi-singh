@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "build:sdk": "tsc -p sdk",
+    "dev": "npm run build:sdk && next dev",
+    "build": "npm run build:sdk && next build",
     "start": "next start",
     "lint": "eslint"
   },

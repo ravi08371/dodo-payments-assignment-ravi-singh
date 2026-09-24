@@ -1,36 +1,121 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dodo Checkout — tiny embeddable checkout
 
-## Getting Started
+A store adds one script, calls `DodoCheckout.open()`, and a checkout opens on top of the page. Card details are entered in an iframe served from the checkout's own origin, so the store never sees them.
 
-First, run the development server:
+- **SDK:** `sdk/dodo-checkout.ts`, plain TypeScript with no dependencies. It compiles to `public/dodo-checkout.js`.
+- **Checkout app:** `app/checkout/`, where the product, email, card and fake payment live.
+- **Demo store:** `app/page.tsx`, "Grit Pro" with a Buy button and a live log of SDK callbacks.
+
+## Running locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open **http://localhost:3000**. The demo loads the SDK and the checkout from **http://127.0.0.1:3000**. It's the same server, but a different origin as far as the browser is concerned, so the iframe is truly cross-origin even locally.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To deploy, deploy the repo twice, once as the checkout and once as the store. On the store, set `NEXT_PUBLIC_CHECKOUT_URL` to the checkout's URL.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How the pieces talk
 
-## Learn More
+```
+Demo store ── <script src="{checkout}/dodo-checkout.js">
+   │
+   │ DodoCheckout.open({ productId, ...callbacks })
+   ▼
+SDK ── adds overlay + <iframe src="{checkout}/checkout?productId=…&origin={store origin}">
+   ▲
+   │ postMessage(msg, storeOrigin)      ready | success | error | close
+   │
+Checkout (iframe) ── form, validation, fake payment
+   │
+   ▼
+SDK ── checks origin + source, copies whitelisted fields ──▶ onSuccess / onError / onClose
+```
 
-To learn more about Next.js, take a look at the following resources:
+- The SDK works out the checkout origin from its own `<script src>`, so there's nothing to configure.
+- The store's origin travels in the iframe URL. The checkout posts every message to exactly that origin. If a page embeds the checkout while claiming to be a different origin, the browser drops the messages.
+- Messages go **one way**. The checkout never listens to the host, so a host page has no channel to steer or query it.
+- The SDK ignores any message that isn't from the checkout origin **and** from its own iframe's window. It then builds fresh callback payloads from known fields and never passes the raw message through.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Message   | Payload                | Callback                               |
+| --------- | ---------------------- | -------------------------------------- |
+| `ready`   | none                   | reveals the iframe and moves focus in  |
+| `success` | `sessionId`            | `onSuccess({ sessionId })`             |
+| `error`   | `code`, `message`      | `onError({ code, message })`           |
+| `close`   | `reason`               | `onClose({ reason })`, then teardown   |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API
 
-## Deploy on Vercel
+```js
+DodoCheckout.open({
+  productId: "prod_123",
+  onSuccess: ({ sessionId }) => {},
+  onClose: ({ reason }) => {},       // "user" | "success" | "error"
+  onError: ({ code, message }) => {},
+});
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The contract is meant to be easy to reason about:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Every `open()` ends with exactly one `onClose`.** Clean up there, whatever happened.
+- `onSuccess` fires as soon as the payment goes through, not when the customer dismisses the receipt.
+- `onError` fires for each failed attempt. The checkout stays open so the customer can retry, so an error is not the end of the session. The codes are `PAYMENT_DECLINED`, `PAYMENT_FAILED`, `PRODUCT_NOT_FOUND` and `CHECKOUT_UNAVAILABLE` (the iframe didn't report ready within 10s).
+- `open()` while a checkout is already open does nothing and returns `false`.
+- A missing `productId` **throws**. That's a bug in the integration, not something to recover from at runtime.
+- An exception thrown inside a merchant callback is caught and logged, so it can't leave the overlay stuck on the page.
+
+## Payment simulation
+
+`lib/payment.ts` waits about 1.6s, then decides the result from the card number:
+
+| Card                  | Result                                                              |
+| --------------------- | ------------------------------------------------------------------- |
+| `4242 4242 4242 4242` | Succeeds                                                            |
+| `4000 0000 0000 0002` | Declined: the card field is selected so the customer can try another |
+| `4000 0000 0000 0341` | Fails the first time in a checkout session, then succeeds on "Try again" |
+
+The checkout shows these cards as click-to-fill chips, labelled "Test mode". Any other valid card number succeeds. Use any future expiry date and any 3-digit CVC.
+
+## States I handled
+
+- **Loading:** the SDK shows a backdrop and spinner until the checkout says `ready`. Escape cancels.
+- **Checkout never loads:** after 10s the host gets `onError(CHECKOUT_UNAVAILABLE)`, then `onClose("error")`.
+- **Invalid form:** errors appear under each field after it loses focus and on submit. Focus jumps to the first invalid field.
+- **Double-clicking Pay:** a ref guards against it, so only one payment attempt runs.
+- **During processing:** the fields become read-only. Close, Escape and backdrop clicks are all ignored.
+- **Declined vs failed:** the copy differs because the fix differs ("try another card" vs "try again"). Both say plainly that the customer **hasn't been charged**.
+- **Offline:** caught before any attempt is made.
+- **Unknown product:** the checkout shows an explanation and the host gets `PRODUCT_NOT_FOUND`.
+- **Checkout URL opened directly:** shows an empty state instead of a broken form.
+- **Focus:** trapped inside the dialog, and restored to the element that opened the checkout when it closes. Page scroll is locked while the checkout is open. Motion is reduced when the user asks for it.
+
+## Security considerations
+
+This is a demo, not a payment system, but the lines are drawn where a real one would draw them:
+
+- **Card data stays in the iframe.** The host page can't read a cross-origin iframe's DOM. Card data never appears in the URL, in messages, in storage, or in logs.
+- **The host learns outcomes, not internals.** It gets a session ID, an error code and a close reason. It doesn't learn the card brand, the last four digits, or the customer's email. A merchant who needs those should fetch them from their server using the session ID, not trust the browser.
+- **The host can't customise the checkout.** No theming and no copy overrides. A consistent checkout is part of what makes it trustworthy, and it closes off "restyle it to look like something else" tricks.
+- **What's missing for production:**
+  - a server-side check that `origin` belongs to the merchant who owns `productId`;
+  - a `frame-ancestors` CSP built from that list;
+  - sessions created on the server;
+  - an idempotency key on every payment attempt.
+
+## Two decisions I went back and forth on
+
+**1. Should closing be allowed while a payment is processing?**
+Letting people leave whenever they want is normally right, and trapping them feels hostile. But if the checkout closes mid-charge, nobody knows whether money moved: not the customer, and not the host (which would get `onClose` with no success or error). I chose to block close for the ~2 seconds a payment takes and to say what's happening on the button. With a real backend I'd reconsider: let them close, and report the final result through a webhook plus a "pending" close reason.
+
+**2. Should `onError` mean "an attempt failed" or "the checkout failed"?**
+If `onError` only fired on terminal failures, it would be simpler for merchants: nothing fires until there's a final result. But a decline followed by the customer closing would then look exactly like the customer just changing their mind, and the host would never learn the truth. I chose to fire `onError` on every failed attempt and make `onClose` the one guaranteed terminal event. The cost is that a merchant has to know `onError` doesn't mean "show a failure page". I've tried to make that obvious in the docs and the demo log.
+
+## What I'd explore next
+
+- A real backend: create the session on the server, check the merchant's origin against `productId`, add idempotency keys, and send webhooks as the source of truth.
+- Letting customers close during processing once a server can report the final state later.
+- Card input polish: keeping the caret in place when editing the middle of the number, Amex (15 digits), and brand icons.
+- Localised currency and copy, plus a small allowed set of theme options (accent colour and logo) if merchants actually ask for them.
+- Automated tests: Playwright for the SDK ⇄ iframe contract, plus unit tests for validation. Right now it's checked by hand and with a throwaway browser script. It also needs a proper screen-reader pass.

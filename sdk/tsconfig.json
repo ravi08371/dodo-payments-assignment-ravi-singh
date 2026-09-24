@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": ["dom", "es2017"],
+    "strict": true,
+    "types": [],
+    "outDir": "../public"
+  },
+  "files": ["dodo-checkout.ts"]
+}
